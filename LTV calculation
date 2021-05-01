@@ -1,0 +1,49 @@
+with ARPU_month as
+(Select
+     visit_month, 
+     Avg(revenue) as ARPU 
+from
+     (select
+          cust_id,
+          Datediff(m, ‘2020-02-01’, transaction_date) as visit_month, 
+          sum(transaction_size) as revenue 
+     from   transactions 
+     where  transaction_date > Dateadd(‘year’, -1, CURRENT_DATE) 
+     group by cust_id, visit_month) 
+group by visit_month),
+
+with monthly_visits as 
+(select
+     distinct
+     Datediff(m, ‘2020-02-01’, transaction_date) as visit_month, 
+     cust_id 
+from transactions 
+where
+transaction_date > dateadd(‘year’, -1, current_date)), 
+
+(select
+avg(churn_rate) 
+from
+     (select
+          current_month, 
+          count(CASE 
+               WHEN cust_type='churn' THEN 1 
+               ELSE NULL 
+          END)/count(cust_id) as churn_rate 
+     from
+          (select
+               past_month.visit_month + interval ‘1 month’ as current_month, 
+               past_month.cust_id, 
+               CASE
+                    WHEN this_month.cust_id IS NULL THEN 'churn' 
+                    ELSE 'retained' 
+               END as cust_type 
+          from
+               monthly_visits past_month 
+           LEFT JOIN monthly_visits this_month ON
+                    this_month.cust_id=past_month.cust_id
+                    AND this_month.visit_month=past_month.visit_month + interval ‘1 month’
+          )data
+     GROUP BY current_month)
+)
+
