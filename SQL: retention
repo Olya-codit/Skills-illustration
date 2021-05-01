@@ -1,0 +1,68 @@
+1) для подсчета retention: 
+
+create table orders ( 
+
+  order_id    int unsigned  not null auto_increment, 
+
+  client_id   int unsigned  not null, 
+
+  creation_dt datetime      not null, 
+  
+  primary key (order_id) 
+
+); 
+
+
+with client_activity as ( 
+
+select client_id, order_id, creation_dt, DATEPART(m, creation_dt) as month, count(order_id) as number_of_orders 
+
+from orders 
+
+group by client_id, month 
+
+), 
+
+  
+
+first_months as ( 
+
+  select client_id, min(month) as first_month 
+
+  from client_activity 
+
+  group by client_id 
+
+), 
+
+  
+
+cohort_counts as ( 
+
+  select first_month, count(client_id) as number_clients_per_cohort 
+
+  from first_months 
+
+  group by first_month 
+
+),  
+
+  
+
+numerator as( 
+
+select month, first_month, count(client_id) as number 
+
+from  
+
+JOIN first_months as fm on fm.client_id=client_activity.client_id 
+
+group by first_month, month)  
+
+  
+
+select first_month, month, numerator/cohort_counts as retention_rate 
+
+from numerator 
+
+JOIN cohort_counts on cohort_counts.first_month=numerator.first_month 
