@@ -1,0 +1,16 @@
+    Select user_id,
+       occurred_at,
+       SUM(is_new_session) OVER (ORDER BY user_id, occurred_at) as overall_session_id,
+       SUM(is_new_session) OVER (PARTITION BY user_id ORDER BY occurred_at) as user_session_id
+      from (
+        Select *,
+              CASE WHEN EXTRACT('EPOCH' FROM occurred_at) - EXTRACT('EPOCH' FROM last_event) >= (60 * 10) 
+                     OR last_event IS NULL 
+                   THEN 1 ELSE 0 END as is_new_session
+         from (
+              Select user_id,
+                     occurred_at,
+                     LAG(occurred_at,1) OVER (PARTITION BY user_id ORDER BY occurred_at) as last_event
+                from schemaname.tablename
+              ) last
+       ) final
